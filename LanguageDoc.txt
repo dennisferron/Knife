@@ -1,0 +1,155 @@
+
+The template language is based on three fundamental concepts:  tuples, labels, and templates.
+Each has an associated operator:
+
+    ,       the tuple operator (comma), creates tuples
+
+    :       the label operator (colon), defines variables
+
+    def     the template operator (lit: "def"), defines templates
+
+
+-- Labels --
+
+a: Int  <-- labels declare variables.  This is an uninitialized Int.
+
+a: 5    <-- These expressions all mean the same thing, a variable initialized to 5.
+a: = 5      Watch how the label operator ":" slides easily into into Pascal / Io style ":="
+a := 5      It's just a matter of convention where you want to put the spaces.
+
+
+-- Tuples --
+
+a,b     <-- this is a tuple. A tuple is created any time you put a comma between two terms.
+            This fact applies to function parameter lists too.  All functions in a sense take
+            just one argument, which is the tuple of the function's parameters.
+
+x:5,y:10 <- Labels can be applied to tuple elements; this creates what is known as named tuple elements.
+            This is an important feature because that allows tuples to also be the structs and classes
+            for this language.  The expression "(x:5,y:10).y" equals "10", and is the same as "(x:5,y:10).second"
+
+
+-- Templates --
+
+def plusOne(a:Int) {a+1} <--  this is a template.  It looks like a function, but it's really a template.
+                            Since templates are the basic concept, a "function" is just a very specific template.
+
+def PairOf(T:type)      <-- this is a template that takes a type and returns a new type.
+    { first:T,second:T }    Same syntax as the "function" plusOne, but this deals with types.
+
+It is the return value that determines what a template "is".  If it returns a value, then it's
+a "function" template.  If it returns a class definition then it's a "class" template.
+Or maybe it's a function from types to types, like PairOf.
+
+Unlike languages which tack on templates as an afterthought, in the template language type arguments
+and value arguments are syntactically the same; you can mix type and value arguments together
+in the same parameter list.  Depending on usage this creates either a function template,
+or a dependent type.  Macros are also templates, but I won't get into that now.
+
+Just like labels, templates can be defined inline almost anywhere, including in expressions.
+This allows the template definition syntax to also be used as a lambda (the name is optional).
+
+
+-- Closures --
+
+Any expression in braces forms a closure.  The features of a closure are that it partitions lexical scopes,
+and that code inside is evaluated lazily.
+
+a := 5
+{ b := a+1 }  <-- this is a closure.  It can see the label "a" from lexical scope above.
+
+{mySecret:"is safe";}    <-- however the reverse is not true; labels inside the closure are not visible outside it
+                            This property allows us to implement data-hiding, the equivalent of "public" and "private",
+                            using functions to wrap scopes.  I cribbed this idea from Javascript and Douglas Crockford.
+
+def NoArgs() { x }  <-- the relationship between "def" and closures:  these expressions are all equivalent, and can be
+def NoArgs { x }        passed as blocks to functions which take a block, lambda or function
+def () { x }
+def { x }
+{ x }
+
+if (happy) { clapHands() }  <-- This is the postfix block form.  It's syntax sugar for passing the block as an argument
+if(happy, { clapHands() })      to the function. C-style control structures are thus also templates, and you can define
+                                your own new control structures as functions taking blocks.
+
+
+-- Objects --
+
+def Egg {                   <-- This is how you create objects in the template language.  The yolk is private because
+    yolk:"inside"               it is defined inside the "Egg" closure.  The methods "crack" and "hatch" are the interface
+    return (                    of the object (an object is a tuple of methods).  Lexical scope of the closure gives
+        def crack() {           the crack method the ability to return the yolk.
+            return yolk
+        } ,
+        def hatch() {
+            return "chicken"
+        }
+    )
+}
+
+a := Egg()      <-- You create objects by calling the template that creates the object
+b := Egg        <-- Parenthesis are optional if they would be empty anyway
+
+a crack == "inside"     <-- Like Io, method application only requires spaces, no dot
+b.hatch == "chicken"    <-- But you can type a dot if you want to.
+
+
+-- Inheritance --
+
+def RobinEgg {              <-- This is how you specialize objects in the language.
+    proto:Egg                   Step 1: Create the base or prototype object, store in a variable.
+    color:"blue"                Step 2: Define any additional variables.
+    return (                    Step 3: Define any additional methods, such as "def look()"
+        def look() {            Step 4: Replace methods from the base with overrides if desired, such as "hatch()"
+            return color } ,    Step 5: Define methodMissing to forward any other calls.
+        def hatch() {           (Notice that metaprogramming is done using mirrors.
+            return "robin"      The compiler will provide a mirror to methodMissing.)
+        },
+        def methodMissing(mirror:Mirror, msg:Message) {
+            mirror reflect(proto) perform(msg)
+        }
+    )
+}
+
+
+-- Multiple Inheritace --
+
+def ChocolateEgg {      <-- Just for fun here's multiple inheritance.  You can implement it any way you like.
+    proto1:Egg
+    proto2:Candy
+    return (
+        def methodMissing(mirror:, msg:) {
+            eggMir := mirror reflect(proto1)
+            cdyMir := mirror reflect(proto2)
+            if (eggMir hasSlot(msg name)) {
+                return eggMir perform(msg)
+            } else {
+                return cdyMir perform(msg)
+            }
+        }
+    )
+}
+
+
+-- Type Aspects --
+
+Types in a modern statically typed language encode a great number of things:  whether something is a pointer,
+a value, or a reference, whether it is const or volatile, whether it is a smart pointer or not, and so forth.
+Unfortunately every optional "type decorator" doubles the number of possible combinations, even if the type
+conceptually supports the same interface whetehr it has the decorator or not.
+
+The template language addresses this problem using type aspects.  Type aspects is the idea that a type
+argument to a template may have several aspects, of which many are hidden or abstracted away from the
+template definition.  (If a hidden aspect must actually be acted upon, it may be recovered via a Mirror.)
+
+Generally the interface of the type is the only type aspect you (should) care about.  Storage class
+(reference, pointer, etc.) is usually a hidden type aspect.
+
+Value type vs. reference type is also an aspect; it's an unsolved problem how to handle that elegantly in this language.
+
+You may object that type aspects are just abstract data types; this is correct in terms of the universe
+of values which a function argument may bind to, but type aspects have more to do with how template
+types are specified and handled.  You may also wonder if type aspects are akin to Haskell type classes;
+again while there are similarities, the purpose is different.  Type aspects generally do not change
+the interface or determine what can be passed to a template, instead they are meant to deal with representational
+issues.
