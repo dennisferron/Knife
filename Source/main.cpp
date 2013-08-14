@@ -449,48 +449,51 @@ struct SyntaxPrinter : boost::static_visitor<std::string>
 namespace Semantic
 {
 
-class Expr
+class Ident
 {
 public:
-    virtual Expr force() = 0;
+    Ident(Syntax::Ident const& name)
+    {
+    }
+};
+
+class Signature
+{
+public:
+    Signature(Syntax::TupleExpr const& args)
+    {
+    }
+};
+
+class CodeBlock
+{
+public:
+    CodeBlock(Syntax::BracesBlock const& code)
+    {
+    }
 };
 
 class DefSpec
 {
 private:
-    std::vector<Stmt> code;
+    boost::optional<Ident> name;
+    boost::optional<Signature> signature;
+    CodeBlock code;
 public:
-    Expr call(std::vector<Expr> args);
-};
-
-class Deck
-{
-private:
-    std::string name;
-    std::vector<DefSpec> specs;
+    DefSpec(Syntax::DefExpr const& syntax)
+        : name(syntax.name), signature(syntax.args), code(syntax.code)
+    {
+    }
 };
 
 }
 
-// Maybe the constructor should be a template rather than the whole class?
-template <typename T>
-struct ParseState
-{
-    T value;
-    boost::unordered_map<std::string, Semantic::Deck> decks;
-
-    ParseState<Semantic::Deck> parse(Syntax::DefExpr def_expr)
-    {
-        // TODO: Build new decks based on this.
-        auto deck = decks.get_or_add(def_expr.name, &[](std::string key){ return Semantic::Deck(key) });
-        return ParseState<Semantic::Deck>(this, deck);
-    }
-};
 
 int main(int argc, char* argv[])
 {
     auto result = Parse("def Main(x:Int=0, y:) { if(x) { say(1) } else { say(2) } }");
-    std::cout << boost::apply_visitor(SyntaxPrinter(), result) << std::endl;
+    Semantic::DefSpec testProgram(result);
+    //std::cout << boost::apply_visitor(SyntaxPrinter(), result) << std::endl;
     std::cout << "Press enter..." << std::endl;
     std::cin.ignore( 99, '\n' );
     return 0;
