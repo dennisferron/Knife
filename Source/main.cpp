@@ -319,13 +319,14 @@ Syntax::DefExpr Parse(std::string str)
     }
 }
 
+/*
 struct SyntaxPrinter : boost::static_visitor<std::string>
 {
     std::string operator()(const Syntax::Invocation& t) const
     {
         auto self = *this;
         std::stringstream result;
-        result << self(t.name);
+        result << print_ident(t.name);
         result << "(" << self(t.args) << ")";
         result << self(t.postfix_lambda);
         result << self(t.next_call);
@@ -340,11 +341,16 @@ struct SyntaxPrinter : boost::static_visitor<std::string>
         result << self(t.name);
         result << "(" << self(t.args) << ")";
         result << endl;
-        result << self(t.code) << endl;
+        result << print_braces_block(t.code) << endl;
         return result.str();
     }
 
     std::string operator()(const Syntax::BracesBlock& t) const
+    {
+        return print_braces_block(t);
+    }
+
+    std::string print_braces_block(const Syntax::BracesBlock& t) const
     {
         auto self = *this;
         std::stringstream result;
@@ -382,16 +388,27 @@ struct SyntaxPrinter : boost::static_visitor<std::string>
 
     std::string operator()(const Syntax::Ident& t) const
     {
+        return print_ident(t);
+    }
+
+    std::string print_ident(const Syntax::Ident& t) const
+    {
         return t.value;
     }
 
     template <typename T>
-    std::string operator()(boost::optional<T> const& t)
+    std::string print_optional(boost::optional<T> const& t)
     {
         if (t)
             return this->operator()(*t);
         else
             return "_";
+    }
+
+    template <typename T>
+    std::string operator()(boost::optional<T> const& t)
+    {
+        return print_optional(t);
     }
 
     template <typename T>
@@ -405,7 +422,7 @@ struct SyntaxPrinter : boost::static_visitor<std::string>
         return boost::apply_visitor(*this, t);
     }
 
-    std::string operator()(Syntax::Stmt const& t)
+    std::string print_stmt(Syntax::Stmt const& t)
     {
         return boost::apply_visitor(*this, t);
     }
@@ -414,7 +431,7 @@ struct SyntaxPrinter : boost::static_visitor<std::string>
     {
         auto self = *this;
         stringstream result;
-        result << self(t.name);
+        result << print_optional<Syntax::Ident>(t.name);
         result << ":" << self(t.type);
         result << self(t.term);
         return result.str();
@@ -424,7 +441,7 @@ struct SyntaxPrinter : boost::static_visitor<std::string>
     {
         auto self = *this;
         stringstream result;
-        result << self(t.name);
+        result << print_ident(t.name);
         result << "=" << self(t.value);
         return result.str();
     }
@@ -444,16 +461,25 @@ struct SyntaxPrinter : boost::static_visitor<std::string>
     {
         return TypeDescr<T>::text();
     }
-};
+};*/
 
 namespace Semantic
 {
 
 class Ident
 {
+private:
+    std::string value;
+
 public:
     Ident(Syntax::Ident const& name)
+        : value(name.value)
     {
+    }
+
+    void dump(std::ostream& s)
+    {
+        s << value;
     }
 };
 
@@ -463,6 +489,11 @@ public:
     Signature(Syntax::TupleExpr const& args)
     {
     }
+
+    void dump(std::ostream& s)
+    {
+        s << "Signature";
+    }
 };
 
 class CodeBlock
@@ -470,6 +501,11 @@ class CodeBlock
 public:
     CodeBlock(Syntax::BracesBlock const& code)
     {
+    }
+
+    void dump(std::ostream& s)
+    {
+        s << "{" << " CodeBlock " << "}" << std::endl;
     }
 };
 
@@ -484,6 +520,29 @@ public:
         : name(syntax.name), signature(syntax.args), code(syntax.code)
     {
     }
+
+    void dump(std::ostream& s)
+    {
+        s << "DefSpec ";
+
+        if (name)
+            name->dump(s);
+        else
+            s << "_";
+
+        s << " ";
+
+        if (signature)
+            signature->dump(s);
+        else
+            s << "_";
+
+        s << " ";
+
+        code.dump(s);
+
+        s << std::endl;
+    }
 };
 
 }
@@ -493,6 +552,7 @@ int main(int argc, char* argv[])
 {
     auto result = Parse("def Main(x:Int=0, y:) { if(x) { say(1) } else { say(2) } }");
     Semantic::DefSpec testProgram(result);
+    testProgram.dump(std::cout);
     //std::cout << boost::apply_visitor(SyntaxPrinter(), result) << std::endl;
     std::cout << "Press enter..." << std::endl;
     std::cin.ignore( 99, '\n' );
