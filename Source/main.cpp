@@ -465,6 +465,14 @@ struct SyntaxPrinter : boost::static_visitor<std::string>
 
 namespace Semantic
 {
+// Base class for all statements and Exprs.
+// (The rationale for making Expr derive from Stmt
+// is that a brace block may contain one or more stmts,
+// and not all stmts are exprs (e.g. operations returning void)
+// but a brace block may need to contain one expr for lambda syntax).
+class Stmt
+{
+};
 
 class Ident
 {
@@ -485,19 +493,37 @@ public:
 
 class Signature
 {
+private:
+    std::vector<std::string> argList;
+
 public:
     Signature(Syntax::TupleExpr const& args)
     {
+        for (auto elem : args.elements)
+            argList.push_back("an arg");
     }
 
     void dump(std::ostream& s)
     {
-        s << "Signature";
+        s << "Signature (";
+
+        bool is_first = true;
+        for (auto arg : argList)
+        {
+            if (!is_first)
+                s << ", ";
+            s << arg;
+            is_first = false;
+        }
+        s << ") ";
     }
 };
 
 class CodeBlock
 {
+private:
+    std::vector<Stmt>
+
 public:
     CodeBlock(Syntax::BracesBlock const& code)
     {
